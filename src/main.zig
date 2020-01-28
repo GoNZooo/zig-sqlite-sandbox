@@ -38,7 +38,8 @@ pub fn main() anyerror!void {
 
 const Sqlite3Value = union(enum) {
     Text: []const u8,
-    Integer: i32,
+    // it's up to the user of the value to cast this integer type into something appropriate
+    I64: i64,
     Null: void,
 };
 
@@ -56,7 +57,11 @@ fn all(allocator: *mem.Allocator, statement: *c.sqlite3_stmt) ![]const []Sqlite3
             const column_type = c.sqlite3_column_type(statement, current_column);
             const value = value: {
                 break :value switch (column_type) {
-                    c.SQLITE_INTEGER => Sqlite3Value{ .Integer = c.sqlite3_column_int(statement, current_column) },
+                    c.SQLITE_INTEGER => {
+                        break :value Sqlite3Value{
+                            .I64 = c.sqlite3_column_int64(statement, current_column),
+                        };
+                    },
                     c.SQLITE_TEXT => {
                         const content = c.sqlite3_column_text(statement, current_column);
                         const size = @intCast(usize, c.sqlite3_column_bytes(statement, current_column));

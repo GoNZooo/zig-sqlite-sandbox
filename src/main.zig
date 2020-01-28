@@ -57,10 +57,8 @@ fn all(allocator: *mem.Allocator, statement: *c.sqlite3_stmt) ![]const []Sqlite3
             const column_type = c.sqlite3_column_type(statement, current_column);
             const value = value: {
                 break :value switch (column_type) {
-                    c.SQLITE_INTEGER => {
-                        break :value Sqlite3Value{
-                            .I64 = c.sqlite3_column_int64(statement, current_column),
-                        };
+                    c.SQLITE_INTEGER => Sqlite3Value{
+                        .I64 = c.sqlite3_column_int64(statement, current_column),
                     },
                     c.SQLITE_TEXT => {
                         const content = c.sqlite3_column_text(statement, current_column);

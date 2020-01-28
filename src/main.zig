@@ -47,10 +47,8 @@ const Row = []Sqlite3Value;
 fn all(allocator: *mem.Allocator, statement: *c.sqlite3_stmt) ![]const []Sqlite3Value {
     var rows = ArrayList([]Sqlite3Value).init(allocator);
 
-    var done = false;
-    while (!done) {
-        const step_result = c.sqlite3_step(statement);
-        if (step_result == c.SQLITE_DONE) done = true;
+    var step_result = c.sqlite3_step(statement);
+    while (step_result != c.SQLITE_DONE and step_result != c.SQLITE_ERROR) : (step_result = c.sqlite3_step(statement)) {
         const columns = c.sqlite3_column_count(statement);
         var row = try allocator.alloc(Sqlite3Value, @intCast(usize, columns));
         var current_column: c_int = 0;

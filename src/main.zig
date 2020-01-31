@@ -30,11 +30,11 @@ const Employee = struct {
         var employees = try allocator.alloc(Employee, rows.len);
         for (rows) |row, i| {
             employees[i] = Employee{
-                .id = @intCast(u32, row[0].I64),
-                .name = row[1].Text,
-                .birthdate = row[2].Text,
-                .salary = @intCast(u32, row[3].I64),
-                .type = try EmployeeType.fromString(row[4].Text),
+                .id = @intCast(u32, try row[0].getI64()),
+                .name = try row[1].getText(),
+                .birthdate = try row[2].getText(),
+                .salary = @intCast(u32, try row[3].getI64()),
+                .type = try EmployeeType.fromString(try row[4].getText()),
             };
         }
 
@@ -78,9 +78,14 @@ pub fn main() anyerror!void {
     defer _ = c.sqlite3_close(db);
 
     var bind_error: BindErrorData = undefined;
-    const employees = try Employee.allEmployees(allocator, db, &bind_error);
-    for (employees) |e| {
-        debug.warn("e={}\n", .{e});
+    // const employees = try Employee.allEmployees(allocator, db, &bind_error);
+    // for (employees) |e| {
+    //     debug.warn("e={}\n", .{e});
+    // }
+    const thing = Thing{ .thing1 = null };
+    const things = try Thing.allThings(allocator, db, &bind_error);
+    for (things) |t| {
+        debug.warn("t={}\n", .{t});
     }
 
     // const query: []const u8 = "SELECT name, salary FROM employees WHERE salary < ?;";
@@ -134,6 +139,78 @@ const Sqlite3Value = union(enum) {
     I64: i64,
     F64: f64,
     Null: void,
+
+    pub fn getI64(self: Sqlite3Value) !i64 {
+        return switch (self) {
+            .I64 => |i64Value| i64Value,
+            else => error.NonI64ValueGet,
+        };
+    }
+
+    pub fn getF64(self: Sqlite3Value) !f64 {
+        return switch (self) {
+            .F64 => |f64Value| f64Value,
+            else => error.NonF64ValueGet,
+        };
+    }
+
+    pub fn getText(self: Sqlite3Value) ![]const u8 {
+        return switch (self) {
+            .Text => |text| text,
+            else => error.NonTextValueGet,
+        };
+    }
+
+    pub fn getBlob(self: Sqlite3Value) ![]const u8 {
+        return switch (self) {
+            .Blob => |blob| blob.?,
+            else => error.NonBlobValueGet,
+        };
+    }
+
+    pub fn getBlobOrNull(self: Sqlite3Value) !?[]const u8 {
+        return switch (self) {
+            .Blob => |blob| blob,
+            .Null => null,
+            else => error.NonBlobValueGet,
+        };
+    }
+
+    pub fn getNull(self: Sqlite3Value) !?void {
+        return switch (self) {
+            .Null => null,
+            else => error.NonNullValueGet,
+        };
+    }
+};
+
+const Thing = struct {
+    const table = "things";
+
+    thing1: ?[]const u8,
+
+    pub fn insert(self: Thing, db: *c.sqlite3, bind_error: *BindErrorData) !void {
+        const query = "INSERT INTO " ++ table ++ "(thing_1) VALUES (?);";
+        const statement = try prepareBind(
+            db,
+            query,
+            &[_]Sqlite3Value{.{ .Blob = self.thing1 }},
+            bind_error,
+        );
+        try execute(statement);
+    }
+
+    pub fn allThings(allocator: *mem.Allocator, db: *c.sqlite3, bind_error: *BindErrorData) ![]Thing {
+        const query = "SELECT (thing_1) FROM " ++ table ++ ";";
+        const statement = try prepareBind(db, query, &[_]Sqlite3Value{}, bind_error);
+        const rows = try all(allocator, statement);
+        var things = try allocator.alloc(Thing, rows.len);
+        for (rows) |row, i| {
+            things[i] = Thing{ .thing1 = try row[0].getBlobOrNull() };
+        }
+
+        return things;
+    }
 };
 
 const Row = []Sqlite3Value;

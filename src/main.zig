@@ -10,6 +10,8 @@ const c = @import("./c.zig");
 
 const database_path = "../../javascript/project-manager/db/project-management.db";
 
+// @TODO: create Sqlite3Context?
+
 const Employee = struct {
     const table = "employees";
 
@@ -87,27 +89,6 @@ pub fn main() anyerror!void {
     for (things) |t| {
         debug.warn("t={}\n", .{t});
     }
-
-    // const query: []const u8 = "SELECT name, salary FROM employees WHERE salary < ?;";
-    // const values = &[_]Sqlite3Value{.{ .I64 = 2000 }};
-    // var bind_error: BindErrorData = undefined;
-    // const statement = prepareBind(db, query, values, &bind_error) catch |e| {
-    //     switch (e) {
-    //         error.BindError => {
-    //             debug.panic("Bind error on value: {}\n", .{bind_error});
-    //         },
-    //         error.NullStatement => {
-    //             debug.panic("Prepare error\n", .{});
-    //         },
-    //     }
-    // };
-    // try execute(statement);
-    // const row = try one(allocator, statement);
-    // for (row) |v| {
-    //     debug.warn("v={}\n", .{v});
-    // }
-
-    // const rows = try all(allocator, statement);
 }
 
 fn prepareBind(

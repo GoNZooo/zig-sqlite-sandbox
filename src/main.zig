@@ -10,6 +10,58 @@ const c = @import("./c.zig");
 
 const database_path = "../../javascript/project-manager/db/project-management.db";
 
+const Employee = struct {
+    const table = "employees";
+
+    id: u32,
+    name: []const u8,
+    birthdate: []const u8,
+    salary: u32,
+    @"type": EmployeeType,
+
+    pub fn allEmployees(
+        allocator: *mem.Allocator,
+        db: *c.sqlite3,
+        bind_error: *BindErrorData,
+    ) ![]Employee {
+        const query = "SELECT id, name, birthdate, salary, type FROM " ++ table ++ ";";
+        const statement = try prepareBind(db, query, &[_]Sqlite3Value{}, bind_error);
+        const rows = try all(allocator, statement);
+        var employees = try allocator.alloc(Employee, rows.len);
+        for (rows) |row, i| {
+            employees[i] = Employee{
+                .id = @intCast(u32, row[0].I64),
+                .name = row[1].Text,
+                .birthdate = row[2].Text,
+                .salary = @intCast(u32, row[3].I64),
+                .type = try EmployeeType.fromString(row[4].Text),
+            };
+        }
+
+        return employees;
+    }
+};
+
+const EmployeeType = enum {
+    BackendDeveloper,
+    FrontendDeveloper,
+    BedSleeper,
+
+    pub fn fromString(string: []const u8) !EmployeeType {
+        if (mem.eql(u8, string, "backend developer")) {
+            return .BackendDeveloper;
+        } else if (mem.eql(u8, string, "frontend developer")) {
+            return .FrontendDeveloper;
+        } else if (mem.eql(u8, string, "bed sleeper")) {
+            return .BedSleeper;
+        } else {
+            debug.warn("Unrecognized employee type: {}\n", .{string});
+
+            return error.InvalidEmployeeTypeFromString;
+        }
+    }
+};
+
 pub fn main() anyerror!void {
     var allocator = &heap.ArenaAllocator.init(heap.page_allocator).allocator;
     var maybe_db: ?*c.sqlite3 = undefined;
@@ -25,35 +77,32 @@ pub fn main() anyerror!void {
     const db = maybe_db.?;
     defer _ = c.sqlite3_close(db);
 
-    const file: []const u8 = &[_]u8{ 'w', 't', 'f' };
-
-    // const query: []const u8 = "INSERT INTO things (thing_1) VALUES (?);";
-    const query: []const u8 = "SELECT name, salary FROM employees WHERE salary < ?;";
-    const values = &[_]Sqlite3Value{.{ .I64 = 2000 }};
     var bind_error: BindErrorData = undefined;
-    const statement = prepareBind(db, query, values, &bind_error) catch |e| {
-        switch (e) {
-            error.BindError => {
-                debug.panic("Bind error on value: {}\n", .{bind_error});
-            },
-            error.NullStatement => {
-                debug.panic("Prepare error\n", .{});
-            },
-        }
-    };
+    const employees = try Employee.allEmployees(allocator, db, &bind_error);
+    for (employees) |e| {
+        debug.warn("e={}\n", .{e});
+    }
+
+    // const query: []const u8 = "SELECT name, salary FROM employees WHERE salary < ?;";
+    // const values = &[_]Sqlite3Value{.{ .I64 = 2000 }};
+    // var bind_error: BindErrorData = undefined;
+    // const statement = prepareBind(db, query, values, &bind_error) catch |e| {
+    //     switch (e) {
+    //         error.BindError => {
+    //             debug.panic("Bind error on value: {}\n", .{bind_error});
+    //         },
+    //         error.NullStatement => {
+    //             debug.panic("Prepare error\n", .{});
+    //         },
+    //     }
+    // };
     // try execute(statement);
     // const row = try one(allocator, statement);
     // for (row) |v| {
     //     debug.warn("v={}\n", .{v});
     // }
 
-    const rows = try all(allocator, statement);
-    for (rows) |row| {
-        for (row) |v| {
-            debug.warn("v={} ", .{v});
-        }
-        debug.warn("\n", .{});
-    }
+    // const rows = try all(allocator, statement);
 }
 
 fn prepareBind(

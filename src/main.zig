@@ -26,8 +26,7 @@ pub fn main() anyerror!void {
     const file: []const u8 = &[_]u8{ 'w', 't', 'f' };
 
     // const query: []const u8 = "INSERT INTO things (thing_1) VALUES (?);";
-    const query: []const u8 = "INSERT INTO employees (name, birthdate, salary, type) VALUES " ++
-        "(?, ?, ?, ?);";
+    const query: []const u8 = "SELECT name, salary FROM employees WHERE salary < ?;";
     var maybe_statement: ?*c.sqlite3_stmt = undefined;
     _ = c.sqlite3_prepare_v3(db, query.ptr, @intCast(c_int, query.len), 0, &maybe_statement, null);
     if (maybe_statement == null) return error.NullStatement;
@@ -37,10 +36,7 @@ pub fn main() anyerror!void {
     bind(
         statement,
         &[_]Sqlite3Value{
-            Sqlite3Value{ .Text = "Runar Sögard" },
-            Sqlite3Value{ .Text = "1987-05-30" },
-            Sqlite3Value{ .I64 = 50 },
-            Sqlite3Value{ .Text = "backend developer" },
+            .{ .I64 = 2000 },
         },
         &bind_error,
     ) catch |e| {
@@ -50,20 +46,19 @@ pub fn main() anyerror!void {
             },
         }
     };
-    // debug.warn("bind_result={}\n", .{bind_result});
-    try execute(statement);
+    // try execute(statement);
     // const row = try one(allocator, statement);
     // for (row) |v| {
     //     debug.warn("v={}\n", .{v});
     // }
 
-    // const rows = try all(allocator, statement);
-    // for (rows) |row| {
-    //     for (row) |v| {
-    //         debug.warn("v={} ", .{v});
-    //     }
-    //     debug.warn("\n", .{});
-    // }
+    const rows = try all(allocator, statement);
+    for (rows) |row| {
+        for (row) |v| {
+            debug.warn("v={} ", .{v});
+        }
+        debug.warn("\n", .{});
+    }
 
     _ = c.sqlite3_close(db);
 }
@@ -84,10 +79,6 @@ const Row = []Sqlite3Value;
 const BindErrorData = union(enum) {
     BindError: Sqlite3Value,
 };
-
-// fn bindI64(statement: *c.sqlite3_stmt, value: i64, column) !void {
-//     switch (c.sqlite3_bind_int64())
-// }
 
 fn bind(statement: *c.sqlite3_stmt, values: []Sqlite3Value, maybe_error: *BindErrorData) !void {
     const statement_columns = c.sqlite3_column_count(statement);

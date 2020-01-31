@@ -12,37 +12,32 @@ const database_path = "../../javascript/project-manager/db/project-management.db
 
 pub fn main() anyerror!void {
     var allocator = &heap.ArenaAllocator.init(heap.page_allocator).allocator;
-    var db: ?*c.sqlite3 = undefined;
+    var maybe_db: ?*c.sqlite3 = undefined;
     const open_result = c.sqlite3_open_v2(
         database_path,
-        &db,
+        &maybe_db,
         c.SQLITE_OPEN_READWRITE | c.SQLITE_OPEN_CREATE,
         null,
     );
-    if (open_result != c.SQLITE_OK) {
-        debug.warn("Unable to open database '{}'\n", .{database_path});
+    if (open_result != c.SQLITE_OK or maybe_db == null) {
+        debug.panic("Unable to open database '{}'\n", .{database_path});
     }
+    const db = maybe_db.?;
+    defer _ = c.sqlite3_close(db);
 
     const file: []const u8 = &[_]u8{ 'w', 't', 'f' };
 
     // const query: []const u8 = "INSERT INTO things (thing_1) VALUES (?);";
     const query: []const u8 = "SELECT name, salary FROM employees WHERE salary < ?;";
-    var maybe_statement: ?*c.sqlite3_stmt = undefined;
-    _ = c.sqlite3_prepare_v3(db, query.ptr, @intCast(c_int, query.len), 0, &maybe_statement, null);
-    if (maybe_statement == null) return error.NullStatement;
-    var statement = maybe_statement.?;
-
+    const values = &[_]Sqlite3Value{.{ .I64 = 2000 }};
     var bind_error: BindErrorData = undefined;
-    bind(
-        statement,
-        &[_]Sqlite3Value{
-            .{ .I64 = 2000 },
-        },
-        &bind_error,
-    ) catch |e| {
+    const statement = prepareBind(db, query, values, &bind_error) catch |e| {
         switch (e) {
             error.BindError => {
                 debug.panic("Bind error on value: {}\n", .{bind_error});
+            },
+            error.NullStatement => {
+                debug.panic("Prepare error\n", .{});
             },
         }
     };
@@ -59,8 +54,26 @@ pub fn main() anyerror!void {
         }
         debug.warn("\n", .{});
     }
+}
 
-    _ = c.sqlite3_close(db);
+fn prepareBind(
+    db: *c.sqlite3,
+    query: []const u8,
+    values: []Sqlite3Value,
+    bind_error: *BindErrorData,
+) !*c.sqlite3_stmt {
+    const statement = try prepare(db, query);
+    try bind(statement, values, bind_error);
+
+    return statement;
+}
+
+fn prepare(db: *c.sqlite3, query: []const u8) !*c.sqlite3_stmt {
+    var maybe_statement: ?*c.sqlite3_stmt = undefined;
+    _ = c.sqlite3_prepare_v3(db, query.ptr, @intCast(c_int, query.len), 0, &maybe_statement, null);
+    if (maybe_statement == null) return error.NullStatement;
+
+    return maybe_statement.?;
 }
 
 extern fn doNothing(data: ?*c_void) void {}

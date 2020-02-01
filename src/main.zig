@@ -8,7 +8,36 @@ const ArrayList = std.ArrayList;
 
 const c = @import("./c.zig");
 
-const database_path = "../../javascript/project-manager/db/project-management.db";
+pub fn main() anyerror!void {
+    var allocator = &heap.ArenaAllocator.init(heap.page_allocator).allocator;
+    var maybe_db: ?*c.sqlite3 = undefined;
+    const open_result = c.sqlite3_open_v2(
+        database_path,
+        &maybe_db,
+        c.SQLITE_OPEN_READWRITE | c.SQLITE_OPEN_CREATE,
+        null,
+    );
+    if (open_result != c.SQLITE_OK or maybe_db == null) {
+        debug.panic("Unable to open database '{}'\n", .{database_path});
+    }
+    const db = maybe_db.?;
+    defer _ = c.sqlite3_close(db);
+
+    var bind_error: BindErrorData = undefined;
+    var employee = try Employee.getOneById(allocator, db, &bind_error, 4);
+    debug.warn("employee={}\n", .{employee});
+    employee.salary = 1000;
+    try employee.update(db, &bind_error);
+    // const employees = try Employee.getAll(allocator, db, &bind_error);
+    // for (employees) |e| {
+    //     debug.warn("e={}\n", .{e});
+    // }
+    // const thing = Thing{ .thing1 = null };
+    // const things = try Thing.allThings(allocator, db, &bind_error);
+    // for (things) |t| {
+    //     debug.warn("t={}\n", .{t});
+    // }
+}
 
 // @TODO: create Sqlite3Context?
 
@@ -21,7 +50,7 @@ const Employee = struct {
     salary: u32,
     @"type": EmployeeType,
 
-    pub fn allEmployees(
+    pub fn getAll(
         allocator: *mem.Allocator,
         db: *c.sqlite3,
         bind_error: *BindErrorData,
@@ -41,6 +70,44 @@ const Employee = struct {
         }
 
         return employees;
+    }
+
+    pub fn getOneById(
+        allocator: *mem.Allocator,
+        db: *c.sqlite3,
+        bind_error: *BindErrorData,
+        id: i64,
+    ) !Employee {
+        const query = "SELECT id, name, birthdate, salary, type FROM " ++ table ++ " WHERE id = ?;";
+        const statement = try prepareBind(db, query, &[_]Sqlite3Value{.{ .I64 = id }}, bind_error);
+        const row = try one(allocator, statement);
+        const employee = Employee{
+            .id = @intCast(u32, try row[0].getI64()),
+            .name = try row[1].getText(),
+            .birthdate = try row[2].getText(),
+            .salary = @intCast(u32, try row[3].getI64()),
+            .type = try EmployeeType.fromString(try row[4].getText()),
+        };
+
+        return employee;
+    }
+
+    pub fn update(self: Employee, db: *c.sqlite3, bind_error: *BindErrorData) !void {
+        const query = "UPDATE " ++ table ++
+            " SET name = ?, birthdate = ?, salary = ?, type = ? WHERE id = ?;";
+        const statement = try prepareBind(
+            db,
+            query,
+            &[_]Sqlite3Value{
+                .{ .Text = self.name },
+                .{ .Text = self.birthdate },
+                .{ .I64 = @intCast(i64, self.salary) },
+                .{ .Text = self.@"type".toString() },
+                .{ .I64 = self.id },
+            },
+            bind_error,
+        );
+        try execute(statement);
     }
 };
 
@@ -62,34 +129,15 @@ const EmployeeType = enum {
             return error.InvalidEmployeeTypeFromString;
         }
     }
+
+    pub fn toString(self: EmployeeType) []const u8 {
+        return switch (self) {
+            .BackendDeveloper => "backend developer",
+            .FrontendDeveloper => "frontend developer",
+            .BedSleeper => "bed sleeper",
+        };
+    }
 };
-
-pub fn main() anyerror!void {
-    var allocator = &heap.ArenaAllocator.init(heap.page_allocator).allocator;
-    var maybe_db: ?*c.sqlite3 = undefined;
-    const open_result = c.sqlite3_open_v2(
-        database_path,
-        &maybe_db,
-        c.SQLITE_OPEN_READWRITE | c.SQLITE_OPEN_CREATE,
-        null,
-    );
-    if (open_result != c.SQLITE_OK or maybe_db == null) {
-        debug.panic("Unable to open database '{}'\n", .{database_path});
-    }
-    const db = maybe_db.?;
-    defer _ = c.sqlite3_close(db);
-
-    var bind_error: BindErrorData = undefined;
-    // const employees = try Employee.allEmployees(allocator, db, &bind_error);
-    // for (employees) |e| {
-    //     debug.warn("e={}\n", .{e});
-    // }
-    const thing = Thing{ .thing1 = null };
-    const things = try Thing.allThings(allocator, db, &bind_error);
-    for (things) |t| {
-        debug.warn("t={}\n", .{t});
-    }
-}
 
 fn prepareBind(
     db: *c.sqlite3,
@@ -433,3 +481,5 @@ fn all(allocator: *mem.Allocator, statement: *c.sqlite3_stmt) ![]const []Sqlite3
 
     return rows.toSliceConst();
 }
+
+const database_path = "../../javascript/project-manager/db/project-management.db";

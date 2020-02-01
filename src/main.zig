@@ -128,6 +128,14 @@ const Sqlite3Value = union(enum) {
         };
     }
 
+    pub fn getI64OrNull(self: Sqlite3Value) !?i64 {
+        return switch (self) {
+            .I64 => |i64Value| i64Value,
+            .Null => null,
+            else => error.NonI64ValueGet,
+        };
+    }
+
     pub fn getF64(self: Sqlite3Value) !f64 {
         return switch (self) {
             .F64 => |f64Value| f64Value,
@@ -135,9 +143,25 @@ const Sqlite3Value = union(enum) {
         };
     }
 
+    pub fn getF64OrNull(self: Sqlite3Value) !?f64 {
+        return switch (self) {
+            .F64 => |f64Value| f64Value,
+            .Null => null,
+            else => error.NonF64ValueGet,
+        };
+    }
+
     pub fn getText(self: Sqlite3Value) ![]const u8 {
         return switch (self) {
             .Text => |text| text,
+            else => error.NonTextValueGet,
+        };
+    }
+
+    pub fn getTextOrNull(self: Sqlite3Value) !?[]const u8 {
+        return switch (self) {
+            .Text => |text| text,
+            .Null => null,
             else => error.NonTextValueGet,
         };
     }

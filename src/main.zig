@@ -159,7 +159,7 @@ fn prepare(db: *c.sqlite3, query: []const u8) !*c.sqlite3_stmt {
     return maybe_statement.?;
 }
 
-extern fn doNothing(data: ?*c_void) void {}
+fn doNothing(data: ?*c_void) callconv(.C) void {}
 
 const Sqlite3Value = union(enum) {
     Text: []const u8,

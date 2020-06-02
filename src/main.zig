@@ -253,7 +253,11 @@ const Thing = struct {
         try execute(statement);
     }
 
-    pub fn allThings(allocator: *mem.Allocator, db: *c.sqlite3, bind_error: *BindErrorData) ![]Thing {
+    pub fn allThings(
+        allocator: *mem.Allocator,
+        db: *c.sqlite3,
+        bind_error: *BindErrorData,
+    ) ![]Thing {
         const query = "SELECT (thing_1) FROM " ++ table ++ ";";
         const statement = try prepareBind(db, query, &[_]Sqlite3Value{}, bind_error);
         const rows = try all(allocator, statement);
@@ -422,7 +426,9 @@ fn all(allocator: *mem.Allocator, statement: *c.sqlite3_stmt) ![]const []Sqlite3
     defer _ = c.sqlite3_finalize(statement);
 
     var step_result = c.sqlite3_step(statement);
-    while (step_result != c.SQLITE_DONE and step_result != c.SQLITE_ERROR) : (step_result = c.sqlite3_step(statement)) {
+    while (step_result != c.SQLITE_DONE and
+        step_result != c.SQLITE_ERROR) : (step_result = c.sqlite3_step(statement))
+    {
         const columns = c.sqlite3_column_count(statement);
         var row = try allocator.alloc(Sqlite3Value, @intCast(usize, columns));
         var current_column: c_int = 0;

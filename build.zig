@@ -2,6 +2,7 @@ const Builder = @import("std").build.Builder;
 
 pub fn build(b: *Builder) void {
     const mode = b.standardReleaseOptions();
+    const cross_target = b.standardTargetOptions(.{});
     const exe = b.addExecutable("sqlite-sandbox", "src/main.zig");
     exe.linkLibC();
     exe.addCSourceFile(
@@ -10,6 +11,7 @@ pub fn build(b: *Builder) void {
     );
     exe.addIncludeDir("./dependencies/sqlite-amalgamation-3310100");
     exe.setBuildMode(mode);
+    exe.setTarget(cross_target);
     exe.install();
 
     const run_cmd = exe.run();

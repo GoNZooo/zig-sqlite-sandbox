@@ -6,7 +6,7 @@ pub fn build(b: *Builder) void {
     exe.linkLibC();
     exe.addCSourceFile(
         "./dependencies/sqlite-amalgamation-3310100/sqlite3.c",
-        &[_][]const u8{"--std=c90"},
+        &[_][]const u8{},
     );
     exe.addIncludeDir("./dependencies/sqlite-amalgamation-3310100");
     exe.setBuildMode(mode);

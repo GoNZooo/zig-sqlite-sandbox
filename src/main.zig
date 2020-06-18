@@ -28,15 +28,15 @@ pub fn main() anyerror!void {
     debug.warn("employee={}\n", .{employee});
     employee.salary = 1000;
     try employee.update(db, &bind_error);
-    // const employees = try Employee.getAll(allocator, db, &bind_error);
-    // for (employees) |e| {
-    //     debug.warn("e={}\n", .{e});
-    // }
-    // const thing = Thing{ .thing1 = null };
-    // const things = try Thing.allThings(allocator, db, &bind_error);
-    // for (things) |t| {
-    //     debug.warn("t={}\n", .{t});
-    // }
+    const employees = try Employee.getAll(allocator, db, &bind_error);
+    for (employees) |e| {
+        debug.warn("e={}\n", .{e});
+    }
+    const thing = Thing{ .thing1 = null };
+    const things = try Thing.allThings(allocator, db, &bind_error);
+    for (things) |t| {
+        debug.warn("t={}\n", .{t});
+    }
 }
 
 // @TODO: create Sqlite3Context?
@@ -485,7 +485,7 @@ fn all(allocator: *mem.Allocator, statement: *c.sqlite3_stmt) ![]const []Sqlite3
         try rows.append(row);
     }
 
-    return rows.toSliceConst();
+    return rows.items;
 }
 
 const database_path = "../../javascript/project-manager/db/project-management.db";

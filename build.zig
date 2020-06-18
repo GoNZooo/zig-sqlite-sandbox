@@ -1,8 +1,12 @@
 const Builder = @import("std").build.Builder;
+const CrossTarget = @import("std").zig.CrossTarget;
+const Abi = @import("std").Target.Abi;
+const debug = @import("std").debug;
 
 pub fn build(b: *Builder) void {
     const mode = b.standardReleaseOptions();
-    const cross_target = b.standardTargetOptions(.{});
+    const gnu_target = CrossTarget{ .abi = Abi.gnu };
+    const cross_target = b.standardTargetOptions(.{ .default_target = gnu_target });
     const exe = b.addExecutable("sqlite-sandbox", "src/main.zig");
     exe.linkLibC();
     exe.addCSourceFile(

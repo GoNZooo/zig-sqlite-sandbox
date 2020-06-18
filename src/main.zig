@@ -277,16 +277,14 @@ const BindErrorData = union(enum) {
 };
 
 fn bind(statement: *c.sqlite3_stmt, values: []Sqlite3Value, maybe_error: *BindErrorData) !void {
-    const statement_columns = c.sqlite3_column_count(statement);
-    var column: usize = 1;
+    const bind_parameter_count = c.sqlite3_bind_parameter_count(statement);
+    debug.assert(bind_parameter_count == values.len);
+
+    var column: c_int = 1;
     for (values) |v| {
         switch (v) {
             .I64 => |i64Value| {
-                if (c.sqlite3_bind_int64(
-                    statement,
-                    @intCast(c_int, column),
-                    i64Value,
-                ) != c.SQLITE_OK) {
+                if (c.sqlite3_bind_int64(statement, column, i64Value) != c.SQLITE_OK) {
                     maybe_error.* = BindErrorData{ .BindError = v };
 
                     return error.BindError;
@@ -295,7 +293,7 @@ fn bind(statement: *c.sqlite3_stmt, values: []Sqlite3Value, maybe_error: *BindEr
             .Text => |text| {
                 if (c.sqlite3_bind_text(
                     statement,
-                    @intCast(c_int, column),
+                    column,
                     text.ptr,
                     @intCast(c_int, text.len),
                     doNothing,
@@ -308,7 +306,7 @@ fn bind(statement: *c.sqlite3_stmt, values: []Sqlite3Value, maybe_error: *BindEr
             .Blob => |blob| {
                 if (c.sqlite3_bind_blob(
                     statement,
-                    @intCast(c_int, column),
+                    column,
                     if (blob) |b| b.ptr else null,
                     if (blob) |b| @intCast(c_int, b.len) else 0,
                     doNothing,
@@ -319,11 +317,7 @@ fn bind(statement: *c.sqlite3_stmt, values: []Sqlite3Value, maybe_error: *BindEr
                 }
             },
             .F64 => |f64Value| {
-                if (c.sqlite3_bind_double(
-                    statement,
-                    @intCast(c_int, column),
-                    f64Value,
-                ) != c.SQLITE_OK) {
+                if (c.sqlite3_bind_double(statement, column, f64Value) != c.SQLITE_OK) {
                     maybe_error.* = BindErrorData{ .BindError = v };
 
                     return error.BindError;
